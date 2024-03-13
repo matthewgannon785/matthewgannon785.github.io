@@ -1,0 +1,316 @@
+library(keras)
+library(jpeg)
+library(tfruns)
+library(tensorflow)
+library(reticulate)
+library(jsonlite)
+setwd("C:/Users/matth/Documents/Machine Learning & AI/Assignment3")
+
+train_dir <- "C:/Users/matth/Documents/Machine Learning & AI/Assignment3/train"
+validation_dir <- "C:/Users/matth/Documents/Machine Learning & AI/Assignment3/validation"
+train_datagen <- image_data_generator(rescale = 1/255)
+validation_datagen <- image_data_generator(rescale = 1/255)
+
+#### Model 1.
+
+save(fit1,file="fit1.Rdata")
+load(file="fit1.Rdata")
+save(fit2,file="fit2.Rdata")
+load(file="fit2.Rdata")
+save(fit3,file="fit3.Rdata")
+load(file="fit3.Rdata")
+save(fit4,file="fit4.Rdata")
+load(file="fit4.Rdata")
+
+train_generator <- flow_images_from_directory(
+train_dir,
+train_datagen,
+target_size = c(64, 64),
+batch_size = 20,
+class_mode = "categorical"
+)
+
+validation_generator <- flow_images_from_directory(
+validation_dir,
+validation_datagen,
+target_size = c(64, 64),
+batch_size = 20,
+class_mode = "categorical"
+)
+
+model1 <- keras_model_sequential() %>%
+layer_conv_2d(filters = 16, kernel_size = c(3, 3), activation = "relu",
+input_shape = c(64, 64, 3)) %>%
+layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+layer_conv_2d(filters = 32, kernel_size = c(3, 3), activation = "relu") %>%
+layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+layer_conv_2d(filters = 32, kernel_size = c(3, 3), activation = "relu") %>%
+layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = "relu") %>%
+layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+# fully connected layers
+layer_flatten() %>%
+layer_dense(units = 256, activation = "relu") %>%
+layer_dense(units = 10, activation = "softmax") %>%
+# compile
+compile(
+loss = "categorical_crossentropy",
+metrics = "accuracy",
+optimizer = optimizer_adam(learning_rate = 0.0001)
+)
+
+fit1 <- model1 %>% fit(
+train_generator,
+steps_per_epoch = 75,
+epochs = 75,
+validation_data = validation_generator,
+validation_steps = 25
+)
+
+
+
+
+runs_model1 <- tuning_run("A3M1.R",
+runs_dir = "runs_model1",
+flags = list(
+lr = lr_set,
+bs = bs_set
+),
+sample = 0.1)
+
+runs_dir = "runs_model1",
+sample 
+read_metrics <- function(path, files = NULL)
+# 'path' 0.1)here the runs are --> e.g. "path/to/runs"
+{
+path <- paste0(path, "/")
+if ( is.null(files) ) files <- list.files(path)
+n <- length(files)
+out <- vector("list", n)
+for ( i in 1:n ) {
+dir <- paste0(path, files[i], "/tfruns.d/")
+out[[i]] <- jsonlite::fromJSON(paste0(dir, "metrics.json"))
+out[[i]]$flags <- jsonlite::fromJSON(paste0(dir, "flags.json"))
+out[[i]]$evaluation <- jsonlite::fromJSON(paste0(dir, "evaluation.json"))
+}
+return(out)
+}
+
+
+# to add a smooth line to points
+smooth_line <- function(y) {
+x <- 1:length(y)
+out <- predict(loess(y ~ x))
+return(out)
+}
+
+# check learning curves
+out <- cbind(fit1$metrics$accuracy,
+fit1$metrics$val_accuracy,
+fit1$metrics$loss,
+fit1$metrics$val_loss)
+cols <- c("black", "dodgerblue3")
+
+par(mfrow = c(1,2))
+# accuracy
+matplot(out[,1:2], pch = 19, ylab = "Accuracy", xlab = "Epochs",
+col = adjustcolor(cols, 0.3),
+log = "y")
+matlines(apply(out[,1:2], 2, smooth_line), lty = 1, col = cols, lwd = 2)
+legend("bottomright", legend = c("Training", "Validation"),cex = 0.5,
+fill = cols, bty = "n")
+# loss
+matplot(out[,3:4], pch = 19, ylab = "Loss", xlab = "Epochs",
+col = adjustcolor(cols, 0.3))
+matlines(apply(out[,3:4], 2, smooth_line), lty = 1, col = cols, lwd = 2)
+legend("topright", legend = c("Training", "Validation"),cex = 0.5,
+fill = cols, bty = "n")
+
+#### Model 2.
+model2 <- keras_model_sequential()%>%
+  layer_dense(units = 8, input_shape = c(64, 64,3), activation = "sigmoid", 
+  name =  "layer_1", kernel_regularizer = regularizer_l2(0.01)) %>%
+  layer_dropout(rate = 0.4) %>%
+  layer_dense(units = 16, activation = "relu", name = "layer_2",
+              kernel_regularizer = regularizer_l2(0.01)) %>%
+  layer_dropout(rate = 0.4) %>%
+  layer_dense(units = 32, activation = "relu", name = "layer_3",
+              kernel_regularizer = regularizer_l2(0.01)) %>%
+  layer_dropout(rate = 0.4) %>%
+  layer_flatten() %>%
+layer_dense(units = 256, activation = "relu") %>%
+layer_dense(units = 10, activation = "softmax") %>%
+  compile(loss = "categorical_crossentropy", metrics = "accuracy",
+          optimizer = optimizer_adam(learning_rate = 0.0001)
+  )
+
+fit2 <- model2 %>% fit(
+train_generator,
+steps_per_epoch = 75,
+epochs = 75,
+validation_data = validation_generator,
+validation_steps = 25
+)
+
+#### Model 3.
+
+data2 <- image_data_generator(
+rescale = 1/255,
+rotation_range = 40,
+width_shift_range = 0.2,
+height_shift_range = 0.2,
+shear_range = 0.2,
+zoom_range = 0.2,
+horizontal_flip = TRUE,
+fill_mode = "nearest"
+)
+
+model3 <- keras_model_sequential() %>%
+layer_conv_2d(filters = 16, kernel_size = c(3, 3), activation = "relu",
+input_shape = c(64, 64, 3)) %>%
+layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = "sigmoid") %>%
+layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = "sigmoid") %>%
+layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+layer_conv_2d(filters = 128, kernel_size = c(3, 3), activation = "relu") %>%
+layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+# fully connected layers
+layer_flatten() %>%
+layer_dense(units = 512, activation = "relu") %>%
+layer_dense(units = 10, activation = "softmax") %>%
+compile(
+loss = "categorical_crossentropy",
+metrics = "accuracy",
+optimizer = optimizer_rmsprop(learning_rate = 0.0001)
+)
+# train data generator with data augmentation
+train_generator <- flow_images_from_directory(
+train_dir,
+data2,
+target_size = c(64, 64),
+batch_size = 20,
+class_mode = "categorical"
+)
+# train with data augmentation
+# NOTE : this will take time!
+fit3 <- model3 %>% fit(
+train_generator,
+steps_per_epoch = 75,
+epochs = 75,
+validation_data = validation_generator,
+validation_steps = 25
+)
+
+#### Model 4.
+conv_base <- application_resnet50(
+  weights = NULL,
+  include_top = TRUE,
+  pooling = c(2, 2),
+  classes = 10,
+  classifier_activation = "relu")
+
+model4 <- keras_model_sequential() %>%
+conv_base%>%
+# fully connected layers
+layer_flatten() %>%
+layer_dense(units = 128, activation = "relu") %>%
+layer_dense(units = 10, activation = "softmax") %>%
+compile(
+loss = "categorical_crossentropy",
+metrics = "accuracy",
+optimizer = optimizer_adam(learning_rate = 0.0001)
+)
+
+fit4 <- model4 %>% fit(
+train_generator,
+steps_per_epoch = 75,
+epochs = 10,
+validation_data = validation_generator,
+validation_steps = 25
+)
+
+out4 <- cbind(out[,1:2],
+fit2$metrics$accuracy,
+fit2$metrics$val_accuracy,
+fit3$metrics$accuracy,
+fit3$metrics$val_accuracy,
+fit4$metrics$accuracy,
+fit4$metrics$val_accuracy,
+out[,3:4],
+fit2$metrics$loss,
+fit2$metrics$val_loss,
+fit3$metrics$loss,
+fit3$metrics$val_loss,
+fit4$metrics$loss[1:10],
+fit4$metrics$val_loss)
+cols <- c("black", "dodgerblue3", "darkorchid4", "magenta", "green", "pink", "blue", "brown")
+
+par(mfrow = c(1,2))
+# accuracy
+matplot(out4[,1:8], pch = 19, ylab = "Accuracy", xlab = "Epochs",
+col = adjustcolor(cols, 0.3),
+log = "y")
+matlines(apply(out4[,1:8], 2, smooth_line), lty = 1, col = cols, lwd = 2)
+legend("bottomright", legend = c("Model 1 Training", "Model 1 Validation","Model 2 Training", "Model 2 Validation","Model 3 Training", "Model 3 Validation","Model 4 Training", "Model 4 Validation"),cex = 0.5,
+fill = cols, bty = "n")
+# loss
+matplot(out4[,9:16], pch = 19, ylab = "Loss", xlab = "Epochs",
+col = adjustcolor(cols, 0.3))
+matlines(apply(out4[,9:16], 2, smooth_line), lty = 1, col = cols, lwd = 2)
+legend("bottomleft", legend = c("Model 1 Training", "Model 1 Validation","Model 2 Training", "Model 2 Validation","Model 3 Training", "Model 3 Validation","Model 4 Training", "Model 4 Validation"),cex = 0.5,
+fill = cols, bty = "n")
+
+#### Task 3
+
+save(fit1_test,file="fit1_test.Rdata")
+load(file="fit1_test.Rdata")
+
+train_val_dir <- "C:/Users/matth/Documents/Machine Learning & AI/Assignment3/train_val"
+train_val_datagen <- image_data_generator(rescale = 1/255)
+
+test_dir <- "C:/Users/matth/Documents/Machine Learning & AI/Assignment3/test"
+test_datagen <- image_data_generator(rescale = 1/255)
+
+train_val_generator <- flow_images_from_directory(
+train_val_dir,
+train_val_datagen,
+target_size = c(64, 64),
+batch_size = 20,
+class_mode = "categorical",
+shuffle = FALSE
+)
+
+test_generator <- flow_images_from_directory(
+test_dir,
+test_datagen,
+target_size = c(64, 64),
+batch_size = 20,
+class_mode = "categorical",
+shuffle = FALSE
+)
+
+fit1_test <- model1 %>% fit(
+train_val_generator,
+steps_per_epoch = 100,
+epochs = 100,
+validation_data = test_generator,
+validation_steps = 30
+)
+
+plot(fit1_test)
+class_hat <- model1 %>% predict(test_generator) %>% k_argmax()+1 
+y_labels_test <- test_generator$labels +1 
+# check performance and class-specific performance
+tab <- table(y_labels_test, as.vector(class_hat))
+acc <- diag(tab)/rowSums(tab)
+cbind(tab, acc)
+
+save(class_hat,file="class_hat.Rdata")
+load(file="class_hat.Rdata")
+save(fit1_test,file="fit1_test.Rdata")
+save(tab,file="tab.Rdata")
+save(acc,file="acc.Rdata")
+
+load(file="acc.Rdata")
+load(file="tab.Rdata")

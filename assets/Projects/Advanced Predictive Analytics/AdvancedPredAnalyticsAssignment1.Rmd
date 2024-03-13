@@ -1,0 +1,312 @@
+---
+title: "Advanced Predictive Analytics Assignment 1"
+author: "16343261"
+date: "13/03/2023"
+output:
+  word_document:
+    toc: yes
+    toc_depth: '2'
+  html_document:
+    toc: yes
+    toc_depth: 2
+  ioslides_presentation: default
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
+---
+\fontsize{11}{12}
+\selectfont
+
+Before we begin this assignment, I will load in the data and packages as required.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=FALSE, message=FALSE, error=FALSE, warning=FALSE, comment=NA, out.width='95%')
+```
+
+```{r}
+library(ISLR2)
+library(glmnet)
+library(cowplot)
+library(ggplot2)
+data(Boston)
+Boston <- na.omit(Boston)
+y <- Boston$medv
+x <- model.matrix(medv ~., Boston)[, -1]
+```
+
+# Question 1A.
+
+To begin this question, we will randomly split the data set into a training and test set.
+
+```{r}
+set.seed(116)
+train <- sample(1:nrow(x), nrow(x) / 2)
+test <- (-train)
+y.test <- y[test]
+```
+
+Next we will fit our 3 linear models as requested starting with least squares.
+
+```{r}
+# Least Squares
+ols.mod <- lm(y[train] ̃x[train, ])
+ols.pred<-cbind(1,x[test, ])%*%ols.mod$coef
+```
+
+Next we will calculate our cross validation chosen lambda for Ridge and LASSO regression and fit them accordingly. 
+
+```{r}
+lambda_ridge<-cv.glmnet(x[train, ],y[train],alpha=0)
+lambda_min<-lambda_ridge$lambda.min
+lambda_min
+lambda_star <- lambda_min
+```
+
+```{r}
+ridge.mod <- glmnet(x[train, ], y[train], alpha = 0, lambda = lambda_star)
+ridge.pred <- predict(ridge.mod, s = lambda_star, newx = x[test, ])
+```
+
+```{r}
+lambda_LASSO<-cv.glmnet(x[train, ],y[train],alpha=1)
+lambda_min<-lambda_LASSO$lambda.min
+lambda_min
+```
+
+```{r}
+LASSO.mod <- glmnet(x[train, ], y[train], alpha = 1, lambda = lambda_min)
+LASSO.pred <- predict(LASSO.mod, s = lambda_min, newx = x[test, ])
+```
+
+Now let's report the test error obtained according to these three methods.
+
+```{r}
+mean((ols.pred - y.test)^2)
+mean((ridge.pred - y.test)^2)
+mean((LASSO.pred - y.test)^2)
+```
+
+Here we see our Least Squares model has the lowest test error.
+
+# Question 1B.
+
+Now let's repeat this procedure 100 times. We will achieve this using a for loop and running our error values into an empty vector.
+
+```{r}
+# Empty error vector.
+OLS.er <- c()
+RIDGE.er <- c()
+LASSO.er <- c()
+# For loop.
+for(i in 1:100){
+# Split data randomly.
+train <- sample(1:nrow(x), nrow(x) / 2)
+test <- (-train)
+y.test <- y[test]
+# Least squares
+ols.mod <- lm(y[train] ̃x[train, ])
+ols.pred<-cbind(1,x[test, ])%*%ols.mod$coef
+OLS.er[i] <- mean((ols.pred - y.test)^2)
+# Ridge 
+ridge.mod <- glmnet(x[train, ], y[train], alpha = 0, lambda = lambda_star)
+ridge.pred <- predict(ridge.mod, s = lambda_star, newx = x[test, ])
+RIDGE.er[i] <- mean((ridge.pred - y.test)^2)
+# LASSO
+LASSO.mod <- glmnet(x[train, ], y[train], alpha = 1, lambda = lambda_min)
+LASSO.pred <- predict(LASSO.mod, s = lambda_min, newx = x[test, ])
+LASSO.er[i] <- mean((LASSO.pred - y.test)^2)
+}
+```
+
+To make our boxplots as requested, we will create a new dataframe with our categories separated.
+
+```{r}
+cat <- c()
+cat[1:100] <- "OLS"
+cat[101:200] <- "RIDGE"
+cat[201:300] <- "LASSO"
+
+test_error <- c()
+test_error[1:100] <- OLS.er
+test_error[101:200] <- RIDGE.er
+test_error[201:300] <- LASSO.er
+
+plot <- data.frame(cat,test_error)
+plot$cat <- as.factor(plot$cat)
+```
+
+Now lets create our boxplot.
+
+```{r}
+# Boxplot
+bp <- ggplot(plot, aes(x=cat, y=test_error, color='red')) +
+  geom_boxplot() + 
+  theme(legend.position = "none")
+# Add gridlines
+bp + background_grid(major = "xy", minor = "none")
+```
+
+While all 3 of our models have a very similar test error. It appears from our Boxplot that least squares is performing the best prediction.
+
+
+# Question 2a. 
+
+# Question 2b.
+
+# Question 2c.
+
+
+# Question 3a.
+
+# Question 3b.
+
+# Question 4a. 
+
+To begin to answer this question, we will first create our Table 1 dataset. We will call this AG. 
+
+```{r}
+WBC <- c(2300,750,4300,2600,6000,10500,10000,17000,5400,7000,9400,32000,35000,100000,100000,52000,100000,4000,3000,4000,1500,9000,5300,10000,19000,27000,28000,31000,26000,21000,79000, 100000,100000)
+time <- c(65,156,100,134,16,108,121,4,39,143,56,26,22,1,1,5,65,56,65,17,7,16,22,3,4,2,3,8,4,3,30,4,43)
+result <- c(1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+AG <- data.frame(WBC,time,result)
+```
+
+Next we will define our Gamma glm and define our log(WBC) variables.
+
+```{r}
+AG$Log_WBC <- log(WBC)
+fit<-glm(time ~ result+Log_WBC, family=Gamma, data = AG)
+summary(fit)
+```
+
+Here we find our line of best fit: Time = (-0.034)xresult + (0.006)xLog_wbc.
+
+Now let's construct our 95% confidence intervals for the parameters.
+
+```{r}
+SE<-coef(summary(fit))[,2] 
+# standard errors
+inf<-fit$coef-qnorm(1-0.05/2)*SE 
+# inferior bound
+sup<-fit$coef+qnorm(1-0.05/2)*SE 
+# Superior bound
+inf
+sup
+```
+
+Here we find our result and log_wbc variables are both significant as zero does not fall in our 95% confidence interval. However here we find our intercept is not significant as zero falls in our interval.
+
+Next we will check the adequacy of our model using residuals. First let's check our assumption of Homoscedasticity.
+
+To check this assumption we must plot the residuals of an explanatory variable and check for constant variance.
+
+```{r}
+plot(AG$result, residuals(fit))
+```
+
+Our variance looks to be constant as the variability of our results observations is similar across our different values.
+
+Next we can use residuals to check our normality assumption. To check this assumption, we will create a boxplot of the residuals and the density of the residuals to see if there is any outliers present in our data or any unusual distribution.
+
+```{r}
+boxplot(residuals(fit), main="Residuals")
+```
+
+```{r}
+plot(density(residuals(fit)), 
+     main="Density Plot: Residuals")
+polygon(density(residuals(fit)), col="red")
+```
+
+Here we can see that there is no outliers in our box plot. This is a good sign. However, we can see an unusual bimodal distribution in our density plot. We can say however that our density is relatively normal for now.
+
+If the quantiles of our residuals distribution are relatively similar to normal distribution they will map to that of normal distribution. So we will check this as well.
+
+```{r}
+qqnorm(residuals(fit),main="QQ plot",pch=19)
+qqline(residuals(fit))
+```
+
+Here we can see a very small amount of deviation from our normal distribution. This is indicative of a normal distribution.
+
+Now we will perform a Shapiro-Wilk Normality Test to check if our data is significantly different from normal distribution, which is likely the case.
+
+```{r}
+shapiro.test(residuals(fit))
+```
+
+Our P-Value here is greater than 0.05. So this is confirming that our data is not significantly different from normal distribution. We can assume normality.
+
+# Question 4b. 
+
+```{r}
+fit_inv <-glm(time ~ result+Log_WBC, family=inverse.gaussian, data = AG)
+summary(fit_inv)
+
+SE_inv <-coef(summary(fit_inv))[,2] 
+# standard errors
+inf_inv<-fit_inv$coef-qnorm(1-0.05/2)*SE_inv 
+# inferior bound
+sup_inv<-fit_inv$coef+qnorm(1-0.05/2)*SE_inv
+# Superior bound
+inf_inv
+sup_inv
+```
+
+Using an inverse-Gaussian GLM, none of our variables are statistically significant. This is due to zero falling between each of our parameters confidence interval. This would be indicative of our model being inadequate using residuals. We can check this using our Shapiro-Wilk test.
+
+```{r}
+shapiro.test(residuals(fit_inv))
+```
+
+Our P-Value here is less than 0.05. So this is confirming that our data is significantly different from normal distribution. We cannot assume normality.
+
+# Question 4c. 
+
+Let's consider a Quasi-Likelihood model as described in our question.
+
+```{r}
+powfam <- quasi(link="log",variance="mu^2")
+varpow <- seq(.1,2.2,by=0.1)
+devpow <- numeric(length(varpow))
+for(i in seq(along=varpow)){
+powfam[["variance"]] <- function(mu) mu^varpow[i]
+fit.QL <- glm(time ~ result+Log_WBC, family=powfam, data = AG)
+devpow[i] <- deviance(fit.QL)}
+```
+
+To select the value of P, we will plot our deviance against P and select our minimum P.
+
+```{r}
+plot(varpow, devpow, type="l", xlab="Variance power", ylab="Deviance")
+min.pow<-which(devpow==min(devpow))
+varpow[min.pow]
+abline(v=varpow[min.pow], col="blue",lty=2)
+```
+
+Here we see our minimum P is 2. We will fit our model and implement this.
+
+```{r}
+fit.QL<-glm(time ~ result+Log_WBC, family=quasi(link="log",variance="mu^2"), data = AG)
+summary(fit.QL)
+```
+
+Here we find our line of best fit: Time = (1.0214)xresult - (0.3045)xLog_wbc + 5.8127.
+
+Now let's provide our 95% confidence interval for the parameters and study their significance.
+
+```{r}
+SE.QL<-coef(summary(fit.QL))[,2] 
+# standard errors
+inf.QL<-fit.QL$coef-qnorm(1-0.05/2)*SE.QL
+# inferior bound
+sup.QL<-fit.QL$coef+qnorm(1-0.05/2)*SE.QL
+# Superior bound
+inf.QL
+sup.QL
+```
+
+Here we find all of our parameters are statistically significant in accordance with our confidence interval.
+
+
+

@@ -1,0 +1,342 @@
+---
+title: "Advanced Predictive Analytics Assignment 2"
+author: "16343261"
+date: "08/05/2023"
+output:
+  word_document:
+    toc: yes
+    toc_depth: '2'
+  html_document:
+    toc: yes
+    toc_depth: 2
+  ioslides_presentation: default
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
+---
+\fontsize{11}{12}
+\selectfont
+
+Before we begin this assignment, I will load in the data and packages as required.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=FALSE, message=FALSE, error=FALSE, warning=FALSE, comment=NA, out.width='95%')
+```
+
+```{r, warning=FALSE}
+library(COMPoissonReg)
+library(AER)
+library(ggplot2)
+library(cowplot)
+library(readxl)
+library(lme4)
+library(RLRsim)
+library(dplyr)
+library(lattice)
+library(sm)
+library(splines)
+```
+
+```{r}
+setwd("C:/Users/matth/Documents/Advanced Predictive Analysis")
+data(couple)
+```
+
+# Question 1.
+
+### Question 1a.
+We will fit our Poisson GLM and interpret. 
+
+```{r}
+fit.pois <- glm(UPB ~ EDUCATION + ANXIETY, data = couple, family=poisson)
+summary(fit.pois)
+```
+
+By using a significance level at 5%, we can reject the null hypothesis H0 : β = 0 for all β and accept H1: β is not equal to zero. Therefore,we find both variables are statistically significant. 
+
+### Question 1b.
+```{r}
+dispersiontest(fit.pois, trafo = function(x) x^2)
+```
+
+We choose a quadratic form for the transformation of μ since the variance of the NB distribution is a quadratic function of μ, which is the most important alternative to the Poisson model to handle overdispersion. We reject the null hypothesis in favour of the alternative one (which states that the data is overdispersed) for any usual significance level considered (note that the p-value is too small). A possible cause for overdispersion is the excess of zeros. 
+
+Due to the pressence of overdispersion, I would not recommend using this Poisson GLM. 
+
+### Question 1c.
+Overdispersion is not an issue in ordinary linear regression, therefore the model I suggest is a standard linear regression model. This will be fitted below.
+
+```{r}
+ln_reg <- lm(UPB ~ EDUCATION + ANXIETY, data = couple)
+summary(ln_reg)
+```
+
+The covariate Education seems to be non-significant to be included in the model. The p-value is 0.306. By using a significance level at 5%, we do not reject the null hypothesis H0 : β1 = 0. In other words, Education is not significant to explain the unwanted pursuit behavior perpetrations.
+
+```{r}
+confint(ln_reg, level=0.95)
+confint(fit.pois, level=0.95)
+```
+
+Using H0 : β = 0 and H1 : β not equal to zero. For our linear regression, we find we cannot reject our null hypothesis for our education variable and therefore it may not be significant. For our other variables, we can reject our null hypothesis and accept our alternative hypothesis. 
+
+When contrasting to our poisson model, we see a clear inference change as in our poisson model our education variable is accepted. 
+
+### Question 1d. 
+First to create our boxplot, we must first establish a zero variable, our x values matrix and our y variable. 
+
+```{r}
+ln.er <- array(0,c(100,1))
+pois.er <- array(0,c(100,1))
+x <- model.matrix(UPB ~., couple)[, -1]
+y <- couple$UPB
+```
+
+Next we will use a for loop with 100 iterations to get the 100 test error values for both models as described. 
+
+```{r}
+for(i in 1:100){
+train <- sample(1:nrow(couple), nrow(couple) / 2)
+test <- (-train)
+y.test <- couple$UPB[test]
+
+ln_reg <- lm(y[train] ̃x[train, ] )
+fit.pois <- glm(UPB[train] ~ EDUCATION[train] + ANXIETY[train], data = couple, family=poisson) 
+
+ln.pred<-cbind(1,x[test, ])%*%ln_reg$coef
+ln.er[i] <- mean((ln.pred - y.test)^2)
+
+pois.pred<- cbind(1,x[test, ])%*%fit.pois$coef
+pois.er[i] <- mean((pois.pred - y.test)^2)
+}
+```
+
+Next we will create a category variable for plotting purposes and create our plotting values. 
+
+```{r}
+cat <- c()
+cat[1:100] <- "OLS"
+cat[101:200] <- "POISSON"
+
+test_error <- c()
+test_error[1:100] <- ln.er
+test_error[101:200] <- pois.er
+
+plot <- data.frame(cat,test_error)
+plot$cat <- as.factor(plot$cat)
+```
+
+Now let's produce our plot.
+
+```{r}
+# Boxplot
+bp <- ggplot(plot, aes(x=cat, y=test_error, color='red')) +
+  geom_boxplot() + 
+  xlab('Category') +
+ylab('Test  Error') +
+  theme(legend.position = "none")
+# Add gridlines
+bp + background_grid(major = "xy", minor = "none")+
+ggtitle('Boxplot ')
+```
+
+Here we find the test error for our Poisson model has noticeably higher test error than our ordinary least squares regression. From this, it is clear that Ordinary Least Squares regression is performing better in terms of prediction. 
+
+# Question 2.
+
+### Question 2a. 
+
+To answer this question, we will load in our mathach data set and create our sampled school variables, create a new data set and fit our linear regression for our fixed factor as described. 
+
+```{r}
+data<-read_xlsx("HSAB.xlsx", sheet = 1)
+
+set.seed(112)
+sample <- sample(data$school, 5)
+sample
+data2 <- data[which(data$school == sample), ]
+data2$school <- as.factor(data2$school)
+fixed_model = lm(math.achieve ~ school, data = data2,REML=FALSE)
+summary(fixed_model)
+```
+
+From our model, we find the 9104 and 1296 (through our intercept) schools are statistically significant. Here we find school #9104 has a particularly positive affect on maths achievement scores with a coefficient of 10.0591. In our model, school #9397 is statistically significant for a p value of 0.1, but not significant for 0.05. 
+
+### Question 2b.
+Our model below has fixed and random effects components. The fixed effect here is just the intercept represented by the first 1 in the model formula. The random effect is represented by (1|school) indicating that the data is grouped by school and the 1 indicating that the random effect is the same within each group. 
+
+```{r}
+random_model = lmer(math.achieve ~ 1 + (1 |school), data = data2,REML=FALSE)
+summary(random_model)
+```
+
+Residuals are expected to be approximately symmetric (median around zero) and the extremes around ±3 if the model is well-fitted to the data. Here we find our residuals are closer to 2 than 3, but certainly approximately symmetric. 
+
+Here we find the estimated standard deviation among schools to be: 3.513. 
+Here we find the estimated standard deviation among individuals in the schools to be: 6.411.
+
+There does not appear to be an inferential change compared to the model considered in a. 
+
+### Question 2c.
+We find our intraclass correlation coefficient from our summary of our random model. 
+
+```{r}
+12.34/(12.34+41.10)
+```
+
+This implies 23.1% of the variation in students’ math achievement scores is “attributable" to differences among schools.
+
+Next our confidence interval. 
+
+```{r}
+confint(random_model, method="boot")
+```
+
+### Question 2d.
+Here we can predict the random effects using the bootstrap method shown below by comparing our model to a fixed model without random events. We will take these results to get our findings.
+
+```{r}
+nullfit <- lm(math.achieve~1, data = data2)
+LR <- as.numeric(2*(logLik(random_model)-logLik(nullfit)))
+lrstat <- numeric(1000)
+```
+
+```{r}
+set.seed(123)
+for(i in 1:1000){
+y <- unlist(simulate(nullfit))
+null.model <- lm(y~1, data = data2)
+alt.model <- lmer(y~1+(1|school), data = data2, REML=FALSE)
+lrstat[i] <- as.numeric(2*(logLik(alt.model)-logLik(null.model)))
+}
+```
+
+Using the dotplot function we can display our 95% confidence intervals for our predictions.
+
+```{r}
+exactLRT(random_model, nullfit)
+dotplot(ranef(random_model, condVar=TRUE))
+```
+
+Here we see similar findings to our earlier fixed model. 
+
+# Question 3.
+
+### Question 3a.
+For this question, lets start by defining our 'f' function. 
+
+```{r}
+f <-function(x){
+(cos(2*(pi)*(x)^(3)))^3
+}
+```
+
+Next we will define our error,obtain our y values and create our required dataset. 
+
+```{r}
+sd <- sqrt(0.04)
+err <- rnorm(200,0,sd)
+x <- seq(0,1, by = 1/199)
+Y <- f(x) + err
+```
+
+```{r}
+gen <- as.data.frame(x)
+gen$y <-Y
+gen$f <- f(x)
+```
+
+Now we will plot our 'f' function over our data.
+
+```{r}
+ggplot(gen, aes(x, y)) +
+geom_point() +
+geom_line(aes(y = f(x)), color = "red") +
+stat_smooth(method = "lm") + 
+xlab('X') +
+ylab('Y') +
+theme_bw()+
+ggtitle('Plot of Data and display the true curve f')
+```
+
+### Question 3b.
+Using the sm.regression function we can fit our curve to the data using kernal smoothing. This can be seen below. 
+
+```{r}
+par(mfrow=c(1,3))
+for(bw in c(0.1,18)){
+with(gen,{
+plot(y ~ x, col=gray(0.75))
+grid()
+lines(ksmooth(x,y,"normal",bw))
+})}
+with(gen,sm.regression(x, y,
+h=h.select(x,y)))
+fit<-with(gen,sm.regression(x, y,
+h=h.select(x, y)))
+```
+
+This fit does not look satisfactory as when compared to the fitted curve with band width = to 0.1, we see a clear difference in fit with the data. 
+
+
+### Question 3c.
+Below we fit our model using smoothing splines with the automatically chosen amount of smoothing.
+
+```{r}
+# generate appropriate spline basis
+xtilde<-bs(x)
+# least squares to determine the coefficients
+fit<-lm(y ~ xtilde, data= gen)
+gen$fitted <- predict(fit)
+summary(fit)
+ggplot(gen, aes(x = x, y = y, color='grey'))+
+geom_point(col = 'blue', alpha = 0.5)+
+geom_line(aes(x = x, y = fitted),size=1)+
+scale_color_manual(name = "Fits", values = c("fitted" = "grey"))+
+xlab('X') +
+ylab('Y') +
+theme_bw()+
+ggtitle("Plot of the Data along the fitted curve") 
+```
+
+Here we find the automatic choice of 3 degrees of freedom was not satisfactory. As we can see from our curve, it does not fully fit to our data. Furthermore, our 3rd x tilde is not statistically significant. We may need to try higher degrees of freedom and compare our vsalues.
+
+### Question 3d.
+To fit our 5 and 18 degrees of freedom using xtilde for df = 5 and xtilde for df = 18. Additionally, we will add our values to our Gen dataset. 
+
+```{r}
+xtilde5<-bs(x, df = 5)
+fit5<-lm(y ~ xtilde5, data= gen)
+xtilde18<-bs(x, df = 18)
+fit18<-lm(y ~ xtilde18, data= gen)
+gen$fitted5 <- predict(fit5)
+gen$fitted18 <- predict(fit18)
+```
+
+Lastly we will plot the data along our fitted curves. 
+
+```{r}
+ggplot(gen, aes(x = x, y = y, color='grey'))+
+geom_point(col = 'blue', alpha = 0.5)+
+geom_line(aes(x = x, y = fitted),size=1)+
+geom_line(aes(x = x, y = fitted5),col = 'yellow',size=1)+
+geom_line(aes(x = x, y = fitted18),col = 'red',size=1)+
+  scale_color_manual(name = "Fits", values = c("fitted" = "grey", "fitted5" = "yellow", "fitted18" = "red"))+
+xlab('X') +
+ylab('Y') +
+theme_bw()+
+ggtitle("Plot of the Data along the fitted curves 
+with 5 and 18 degrees of freedom bands") 
+```
+
+From this question, I believe that the 18 degrees of freedom clearly provides a better estimate of the true curve than our other curves. This is because it fits the data better than any of our plots except possibly our kernal smoothing plot with a 0.1 bandwidth smoothing parameter. 
+
+
+
+
+
+
+
+
+
+

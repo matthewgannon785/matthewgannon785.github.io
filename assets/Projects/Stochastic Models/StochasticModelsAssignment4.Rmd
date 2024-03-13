@@ -1,0 +1,278 @@
+---
+title: "Stochastic Models Assignment 4"
+author: "16343261"
+date: "11/08/2023"
+output:
+  pdf_document:
+    toc: no
+    toc_depth: '2'
+  html_document:
+    toc: yes
+    toc_depth: 2
+  ioslides_presentation: default
+  word_document:
+    toc: yes
+    toc_depth: '2'
+---
+\fontsize{11}{12}
+\selectfont
+
+Before we begin this assignment, I will load in the data as required.
+
+```{r, warning=FALSE, error=FALSE, results='hide',message=FALSE}
+library(BayesLCA)
+library(poLCA)
+library(ClickClust)
+library(clickstream)
+library(seriation)
+A4_clickstreams <- readRDS("~/Stochastic Models/A4_clickstreams.rds")
+load("~/Stochastic Models/Brexitvotes.Rdata")
+div_data = data.frame(divisions)
+div_data[which(div_data=='aye_vote', arr.ind = T)] = 1
+div_data[which(div_data!='1', arr.ind = T)] = 2
+div_data = data.frame(sapply(div_data,as.numeric))
+f = cbind(X1108904, X1108905, X1108906, X1108906, 
+          X1108907, X1107737, X1105521, X1105524,
+          X1105526, X1105527, X1105529, X1105530, 
+          X1105532, X1105533, X1105759) ~ 1
+```
+
+# Question 1. 
+
+To investigate this by fitting a number of LCA models and investigating our brexit variable. 
+
+```{r, results='hide'}
+# Fit a G = 2 model
+fit2 = poLCA(f,div_data,2)
+# Fit a G = 3 model
+fit3 = poLCA(f,div_data,3)
+```
+
+Our findings suggest that House of Commons politicians voting on Brexit-related matters can be grouped into clusters (latent classes) based on their voting behavior. 
+
+We find our classes fall into the following population shares: 0.425 0.4244 0.1506.
+
+Now lets plot our fit:
+
+```{r}
+plot(fit3)
+```
+
+Here we see that each cluster illustrates where politicians exhibit similar voting behavior. 
+
+# Question 2. 
+
+To further investigate how many clusters there are, we will have to investigate using the AIC and the BIC. We will fit our models with higher and higher clusters until our AIC and BIC increases. The model with the lowest AIC and BIC suggests the model we should pick.  
+
+```{r, results='hide'}
+# Fit a G = 4 model
+fit4 = poLCA(f,div_data,4)
+# Fit a G = 5 model
+fit5 = poLCA(f,div_data,5)
+# Fit a G = 6 model
+fit6 = poLCA(f,div_data,6)
+```
+
+```{r}
+b <- fit2$bic
+c <- fit3$bic
+d <- fit4$bic
+e <- fit5$bic
+f <- fit6$bic
+
+i <- fit2$aic
+j <- fit3$aic
+k <- fit4$aic
+l <- fit5$aic
+m <- fit6$aic
+
+bic <- c(b, c, d, e, f)
+aic <- c(i, j, k, l, m)
+
+dat4 <- as.data.frame(bic)
+dat4$aic <- aic
+
+dat4
+```
+
+From this data set, we've found clusters = 5 results in our best cluster findings as our AIC and BIC suggests the best fit. From my analysis, 5 clusters illustrates considerable groups of political beliefs. Next we will evaluate the clusters we find. I am currently unsure why this is now showing different AIC and BIC values but for the purposes of this analysis I have used my initial results which showed an increase at 6 clusters. 
+
+```{r}
+labels
+fit5
+```
+
+Cluster 1:
+
+This cluster has a high probability of voting "yes"  or split for most motions, except for a few cases where the probability of "other" is higher. It seems to represent politicians who tend to vote "yes" on various Brexit-related motions.
+
+Cluster 2:
+
+This cluster has a high probability of voting "yes" or "other" for a majority of motions. It seems to represent politicians who are unified in consistently voting between "yes" or "others" on various Brexit-related motions.
+
+Cluster 3:
+
+This cluster primarily votes "other" for our brexit motions, with 12 out of the 14 motions voted other. It seems to represent politicians who vote "other" on different Brexit-related motions.
+
+Cluster 4:
+
+This cluster has a high probability of voting "other" for many motions. It seems to represent politicians who often vote "other" on various Brexit-related motions.
+
+Cluster 5:
+
+This cluster's votes are split for these motions with 5 motions with 50% split and many of the remaining motions switching between yes and other votes It seems to represent politicians who arfe thorn on specific Brexit-related motions.
+
+Cluster 1 is our largest cluster an estimated population share of approximately 30.22%, Cluster 2 has 13.01%, Cluster 3 has 18.62%, Cluster 4 has 26.08%, and Cluster 5 is our smallest cluster with 12.06%.
+
+# Question 3. 
+Let's load in our clickstream data.
+
+```{r}
+A4_clickstreams <- readRDS("~/Stochastic Models/A4_clickstreams.rds")
+dat = as.clickstreams(A4_clickstreams, sep = ',', header = TRUE)
+```
+
+Now we will will fit our Markov model and extract our transition matrix as necessary. 
+
+```{r}
+#Fit Markov chain model to clickstream data
+fit <- fitMarkovChain(dat, order = 1)
+#Extract the transition matrix
+P<-t(fit@transitions[[1]])
+P<-P[as.character(1:5),as.character(1:5)]
+P<-as.matrix(P)
+round(P,3)
+```
+
+Ignoring self transitions, our 3 highest transitions are as follows:
+
+- Main Page to Weather (0.474)
+- Main Page to International News (0.347)
+- Sports to International News (0.229)
+
+It is clear that for an average user reaching the sight that when landing on the main site, their 2 most commonly selected pages are Weather followed by International News. A second observation is that sports page fans consistently transition to the international news page.
+
+Our 3 lowest transitions are as follows:
+
+- Weather to National News (0.099)
+- Sports to Weather (0.072)
+- International News to Weather(0.068)
+
+Here we see weather is likely the least popular page to visit given someone has viewed either the sports or international news page. Lastly, weather readers rarely read national news. 
+
+Now let's plot our matrix.
+
+```{r}
+pimage(P)
+```
+
+```{r}
+v<-rep(0,5)
+v[1]<-1
+for (i in 1:1000)
+{
+	v <- v%*%P
+}
+#Find stationary distribution using eigenvector
+pi_st <- Re(eigen(t(P))$vector[,1])
+pi_st <- pi_st/sum(pi_st)
+pi_st
+```
+
+Main Page: 16.58%
+The long-term distribution indicates that the Markov chain is expected to spend about 16.58% of its time on the "Main Page."
+
+National News: 17.62%
+This value suggests that approximately 17.62% of the long-term behavior of the Markov chain is expected to be in the "National News" state.
+
+International News: 28.98%
+The stationary distribution implies that a significant portion, around 28.98%, of the Markov chain's long-term behavior will be in the "International News" state.
+
+Sport: 25.35%
+About 25.35% of the time, the Markov chain is expected to be in the "Sport" state.
+
+Weather: 11.47%
+Finally, the long-term distribution suggests that the Markov chain would spend around 11.47% of its time in the "Weather" state.
+
+# Question 4. 
+
+We will estimate our transition matrices M1 and M2 as needed. 
+
+```{r}
+M_1 <- A4_clickstreams[1:300]
+M_2 <- A4_clickstreams[301:600]
+dat_M1 = as.clickstreams(M_1, sep = ',', header = TRUE)
+dat_M2 = as.clickstreams(M_2, sep = ',', header = TRUE)
+
+#Fit Markov chain model to clickstream data
+fit_M1 <- fitMarkovChain(dat_M1, order = 1)
+fit_M2 <- fitMarkovChain(dat_M2, order = 1)
+
+#Extract the transition matrix
+P_M1<-t(fit_M1@transitions[[1]])
+P_M1<-P_M1[as.character(1:5),as.character(1:5)]
+P_M1<-as.matrix(P_M1)
+round(P_M1,2)
+
+P_M2<-t(fit_M2@transitions[[1]])
+P_M2<-P_M2[as.character(1:5),as.character(1:5)]
+P_M2<-as.matrix(P_M2)
+round(P_M2,3)
+```
+`
+```{r}
+v1<-rep(0,5)
+v1[1]<-1
+for (i in 1:1000)
+{
+	v_M1 <- v1%*%P_M1
+}
+#Find stationary distribution using eigenvector
+pi_st_M1 <- Re(eigen(t(P_M1))$vector[,1])
+pi_st_M1 <- pi_st_M1/sum(pi_st_M1)
+pi_st_M1
+for (i in 1:1000)
+{
+	v_M2 <- v1%*%P_M2
+}
+#Find stationary distribution using eigenvector
+pi_st_M2 <- Re(eigen(t(P_M2))$vector[,1])
+pi_st_M2 <- pi_st_M2/sum(pi_st_M2)
+pi_st_M2
+```
+
+Main Page
+Layout 1: 17.64%
+Layout 2: 15.56%
+
+Here we see that the Markov chain is expected to spend roughly the same time as the initial layout.
+
+National News
+Layout 1: 16.63%
+Layout 2: 18.54%
+
+National News has the same but inverted affect as the main page. 
+
+International News
+Layout 1: 31.66%
+Layout 2: 26.27%
+
+Here we see both layouts put a considerable emphasis on international news with it being the most popular would spend most of its time on the International News page.
+
+Sport
+Layout 1: 22.74%
+Layout 2: 27.96%
+
+Here we see that Layout 2 puts considerably more emphasis on sports than layout 1 does with almost a 5% increase. 
+
+Weather
+Layout 1: 11.33%
+Layout 2: 11.68%
+
+Finally, the least visited page. long-term distribution suggests that the Markov chain would spend around 11.5% of its time in the "Weather" state regardless of layout.
+
+# Question 5. 
+
+From the analysis of our transition matrices, it is clear that international news is the most popular page from our click stream data. From this, I would suggest increasing the number of advertisements on this page due to it having the highest significant proportion on the stationary distribution's of both the current layout and layout 1 for the clickstreams. It is also incredibly close to the highest significant proportion for layout 2. 
+
+However, in the case of layout 2 being selected, perhaps Sports should be selected for the increase in advertising.

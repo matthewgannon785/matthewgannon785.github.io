@@ -1,0 +1,342 @@
+---
+title: "Time Series Assignment 2"
+author: "16343261"
+date: "5/12/2022"
+output:
+  word_document:
+    toc: no
+    toc_depth: '2'
+  html_document:
+    toc: yes
+    toc_depth: 2
+  ioslides_presentation: default
+  pdf_document:
+    toc: no
+    toc_depth: '2'
+---
+\fontsize{8}{12}
+\selectfont
+
+Before we begin our analysis, let it be noted that I have not included loading in our data in this pdf for ease of brevity. 
+
+# Question 1 
+#### (A)
+
+```{r, include=FALSE}
+x1<-c(0.98 ,-0.47 ,-1.56 ,-0.98 ,-1.13 ,-0.48 ,-0.90  ,0.18  ,0.32  ,0.26 ,-0.10  ,0.47  ,0.13,
+ 0.54  ,0.31 ,-0.59 ,-0.51 ,-0.56 ,-0.03  ,0.18 ,-0.79 ,-0.09 ,-0.60  ,0.67  ,0.39  ,0.51,
+ 0.51 ,-0.48  ,0.27 ,-0.05  ,0.11 ,-0.10 ,-0.39 ,-0.43 ,-1.02 ,-0.82 ,-0.21 ,-0.68 ,-0.14,
+ -0.92  ,0.06 ,-0.04 ,-0.97 ,-0.22 ,-0.29  ,0.07 ,-0.86 ,-0.34  ,0.15  ,0.22  ,0.66  ,0.12,
+ 0.98 ,-0.26  ,0.24 ,-0.28  ,0.55 ,-0.06  ,0.84  ,0.85  ,0.36 ,-0.39  ,0.81  ,0.64  ,0.27,
+ 0.00 ,-0.29 ,-0.07 ,-0.61 ,-0.74 ,-0.43 ,-0.65 ,-0.52 ,-0.28  ,0.27  ,0.16  ,0.15  ,0.20,
+ -0.60 ,-0.79 ,-0.21  ,0.19 ,-0.48 ,-0.01 ,-0.60 ,-0.44 ,-0.18 ,-0.44 ,-0.76  ,0.14 ,-0.29,
+ 0.32 ,-0.45 ,-0.32 ,-0.57 ,-1.07 ,-0.42 ,-0.07  ,0.00  ,0.31  ,1.12  ,0.63 ,-0.38  ,0.41,
+-0.38  ,0.06 ,-0.30  ,0.74  ,0.37 ,-0.14  ,0.18  ,0.61  ,0.18  ,0.18 ,-0.11 ,-0.72  ,0.21,
+-0.79 ,-0.21  ,0.07  ,0.07  ,0.31  ,0.30 ,-0.04  ,0.24 ,-0.46  ,0.02  ,0.31  ,0.71 ,-0.50,
+0.03 ,-0.21  ,0.66  ,0.01  ,0.12  ,0.98  ,0.98  ,0.51  ,0.50  ,0.90  ,0.64  ,0.10  ,0.09,
+0.00  ,0.94 ,-0.06  ,0.32 ,-0.16 ,-0.24 ,-0.28 ,-0.18 ,-0.16  ,0.06 ,-0.10 ,-0.43  ,0.71,
+-0.27  ,0.77  ,0.36  ,0.32  ,0.40  ,0.92  ,0.41 ,-0.76 ,-0.41 ,-0.87 ,-0.33  ,0.18 ,-0.32,
+0.11  ,0.00  ,0.29 ,-1.36 ,-0.13 ,-0.17 ,-0.58 ,-0.17 ,-0.51  ,0.17  ,0.19  ,0.02 ,-0.29,
+-0.59 ,-0.54 ,-0.74 ,-0.42 ,-0.95 ,-0.50  ,0.28  ,0.19  ,0.96  ,0.59  ,0.90 ,-0.37  ,0.00,
+-0.40 ,-0.30 ,-0.90 ,0.01,-0.84)
+```
+
+Below is the plot for our time series and our ACF.
+
+```{r}
+library(astsa)
+par(mfrow=c(2,1))
+tsplot(x1,type="o")
+acf(x1)
+```
+
+From the time series plot, we can observe neither a positive nor negative trend.Therefore, the mean seems to be constant over time. Further, the ACF has a minor decay overtime, this is evidence for stationarity. Therefore, this time series appears stationary.
+
+#### (B)
+```{r}
+pacf(x1)
+pacf(x1)$acf[1:5]
+sd(x1)
+```
+
+After viewing both our ACF and PACF, we can observe the following properties.
+
+* Our PACF declines after 2 lags.
+
+* Our ACF declines gradually. 
+
+Therefore I believe an AR(2) model to be appropriate.
+
+```{r}
+ar2<-arima(x1, order = c(2, 0, 0),include.mean = FALSE)
+```
+
+#### (C)
+Below, we have the codes used to estimate the parameters of an AR(2) process via Yule-Walker method and the output as well.
+
+```{r}
+x1.yw <- ar.yw(x1, order = 2)
+x1.yw
+```
+
+Hence, we have that ϕ^1 = 0.2686, ϕ^2 = 0.2374, and (σ)^2 = 0.2218.
+
+Therefore, our AR Equation is: Xt = 0.2686Xt-1 + 0.2374Xt-1 + Wt
+with Wt ∼ N(0, 0.2218).
+
+#### (D)
+Below we compute the inferior and superior limits of the confidence intervals.
+
+```{r}
+inf<- x1.yw$ar-qnorm(1-0.05/2)*sqrt(diag(x1.yw$asy.var.coef))
+sup<- x1.yw$ar+qnorm(1-0.05/2)*sqrt(diag(x1.yw$asy.var.coef))
+inf
+sup
+```
+
+Therefore, approximate 95% confidence intervals for ϕ1 and ϕ2 are respectively given by (0.1329730 , 0.4042693 ) and (0.1017936, 0.3730899). As zero is not included in our confidence intervals, we can say there is evidence that our two parameters are statistically significant to be included in our model. 
+
+# Question 2
+#### (A)
+
+```{r, include=FALSE}
+x2<-c(-0.29,0.06,-0.02,0.27,-0.45,0.08,0.36,-0.40,0.52,0.31,-1.54,1.96,-1.35,
+0.72,-0.37,0.46,-0.35,0.07,0.28,-0.28,0.40,-0.56,-0.12,0.28,-0.05,0.11,
+-0.32,0.56,-0.25,-0.33,0.20,0.00,0.18,0.07,-0.37,-0.05,0.26,-0.20,-0.11,
+0.48,-0.39,-0.02,0.83,-0.47,0.09,-0.26,0.51,-0.37,0.28,-0.38,0.18,0.16,
+-0.67,1.56,-1.56,0.85,0.08,-0.45,0.44,-0.17,0.66,-0.56,-0.26,0.45,-0.61,
+0.62,-0.17,-0.26,-0.06,0.06,0.21,0.05,0.40,-0.30,0.20,-0.42,-0.28,0.88,
+-0.28,-0.49,0.32,0.24,-0.84,1.01,-0.66,-0.22,0.69,-1.05,1.09,0.04,-0.21,
+0.50,-1.19,0.96,-0.44,0.57,-0.43,-0.12,0.42,-0.77,0.41,-0.25,0.99,-1.39,
+1.42,-1.71,1.64,-0.94,0.67,-0.99,0.50,0.35,-0.57,0.36,0.05,0.17,-0.77,
+1.04,-0.75,0.34,0.58,-0.95,0.44,0.08,-0.19,0.09,-0.14,-0.35,0.96,-0.86,
+0.91,-0.17,-0.77,0.96,-0.21,-0.47,0.86,-1.38,0.85,-0.62,0.96,-0.60,-0.25,
+0.00,0.11,0.33,-0.64,0.67,-0.13,-0.16,-0.09,0.10,-0.23,-0.15,0.88,-0.39,
+-0.30,0.63,-1.08,1.53,-1.60,1.27,-1.08,0.82,-0.46,0.23,-0.29,0.63,-0.08,
+0.74,0.91,-0.97,0.49,-0.36,0.48,-0.40,0.46,-0.74,0.73,-0.28,-0.33,0.82,
+-1.27,1.01,-0.17,0.02,-0.17,0.33,-0.26,-0.49,0.69,0.24,-0.43,0.05,0.13,
+0.23,0.03,-0.50,0.74,-0.51,-0.17,-0.05,0.93,-1.05,0.66,-0.43,0.72,-1.32,
+1.19,-0.12,-0.22,-0.40,0.89,-0.73,0.18,-0.17,0.30,0.12,-0.49,0.38,0.15,
+-0.41,0.16,0.18,0.16,-0.09,-0.28,0.58,-0.77,0.55,-0.66,0.85,-0.65,0.57,
+-0.34,-0.09,-0.06,0.27,-0.46,0.80,-0.73,0.18,0.78,-0.85,0.47,-0.42,0.42,
+-0.03,-0.28,0.24,0.34,-0.54,0.15,-0.04,-0.15,0.17,-0.37,0.71,-0.51,-0.31,
+0.63,-0.54,0.81,-0.41,-0.28,0.28,-0.15,-0.42,0.84,-0.61,0.34,-0.05,0.33,
+-0.56,0.32,-0.11,-0.15,0.27,-0.08,-0.02,-0.03,0.18,-0.12,0.84,-1.59,1.30,
+-0.59,-0.16,0.97,-1.78,1.52,-0.28,-0.12,-0.40,0.16,-0.38,0.56,-0.71,0.70,
+-0.63)
+```
+
+```{r}
+mean(x2)
+```
+
+```{r}
+par(mfrow=c(3,1))
+tsplot(x2,type="o")
+acf(x2)
+pacf(x2)
+```
+
+Here we find both the ACF and the PACF are exhibiting a gradual decrease. Here we observe our PACF gradually declining from negative values to zero. For our ACF, we find that it moves between negative and positive values.
+
+#### (B)
+
+Both ACF and PACF show slow decay (gradual decrease). Hence, the ARMA (1,1) model would be appropriate for the series. However, observing the ACF plot: it sharply drops after two significant lags which indicates that an MA (2) would be a good candidate model for the process. Therefore, we should experiment with both ARMA (1,1) and MA (2) for the process and later select the optimal model based on a performance metric like AIC (Akaike Information Criteria).
+
+```{r}
+set.seed(12345)
+arma11<-arima(x2, order = c(1, 0, 1), include.mean = TRUE)
+ma2<-arima(x2, order = c(0, 0, 2), include.mean = TRUE)
+```
+
+We will use the AIC and BIC to determine which model to pick. The selected model is that one that minimises the considered information criterion quantity.
+
+```{r}
+AIC(arma11, ma2)
+BIC(arma11, ma2)
+```
+
+Therefore, ARMA(1,1) should be selected as it has the minimum AIC and BIC.
+
+#### (C)
+#### Maximum likelihood estimation
+
+```{r}
+arma11
+```
+
+The fitted model is given by Xt = -0.5753Xt−1 + Wt + -0.6431Wt−1,
+with Wt ∼ N(0, 0.1219).
+
+We want to test the hypotheses 
+H0 : ϕj = 0 against 
+H1 : ϕj ̸= 0, for j = 1, 2 and also 
+H0 : θ1 = 0 against 
+H1 : θ1 ̸= 0. We can do this using a confidence interval.
+
+```{r}
+fit <- arima(x2, order = c(1, 0, 1), include.mean = TRUE)
+# standard errors
+s.e<-sqrt(diag(fit$var.coef))
+# inferior bound
+fit$coef-qnorm(1-0.05/2)*s.e
+# superior bound
+fit$coef+qnorm(1-0.05/2)*s.e
+```
+
+As zero is not included in our confidence intervals, we can say there is evidence that our two parameters are statistically significant to be included in our model. 
+
+#### (D)
+
+We will use the AIC and BIC to determine which model to pick. The selected model is that one that minimises the considered information criterion quantity.
+
+```{r}
+fit1 <- arima(x2, order = c(1, 0, 0), include.mean = TRUE)
+fit2 <- arima(x2, order = c(0, 0, 2), include.mean = TRUE)
+fit3 <- arima(x2, order = c(1, 0, 1), include.mean = TRUE)
+fit4 <- arima(x2, order = c(2, 0, 1), include.mean = TRUE)
+fit5 <- arima(x2, order = c(1, 0, 2), include.mean = TRUE)
+fit6 <- arima(x2, order = c(2, 0, 2), include.mean = TRUE)
+```
+
+```{r}
+AIC(fit1, fit2, fit3, fit4, fit5, fit6)
+BIC(fit1, fit2, fit3, fit4, fit5, fit6)
+```
+
+Here we see two different models are minimising our criteria with AIC selecting ARMA(2,1) and BIC selecting ARMA(1,1).
+
+BIC penalizes model complexity more heavily. The only way they should disagree is when AIC chooses a larger model than BIC.In this case, it should be logical to select ARMA(1,1) to minimise the complexity of our chosen model.
+
+# Question 3
+
+```{r, include=FALSE}
+x3<-c(0.00,0.00,-1.83,-4.42,-7.38,-10.33,-13.03,-16.14,-19.81,-23.52,
+-27.24,-31.18,-34.97,-38.03,-40.85,-44.17,-47.86,-50.88,-53.37,-55.67,
+-58.05,-60.75,-63.77,-66.48,-68.57,-70.29,-71.78,-73.18,-74.87,-76.65,
+-78.56,-81.83,-85.86,-89.98,-94.10,-99.43,-105.98,-113.18,-120.32,-126.88,
+-132.43,-136.88,-140.35,-143.30,-145.28,-146.56,-147.30,-147.39,-147.32,-147.13,
+-146.72,-145.91,-144.58,-142.95,-141.11,-138.20,-133.93,-128.83,-123.11,-116.67,
+-109.01,-100.40,-91.72,-83.41,-75.42,-68.02,-60.52,-52.40,-44.59,-36.25,
+-26.90,-17.75,-9.72,-2.76,3.65,9.74,15.58,21.10,26.66,32.41,
+37.73,41.63,44.57,48.11,52.23,56.60,60.28,63.26,66.52,69.33,
+71.06,71.78,72.71,74.78,77.75,81.87,87.37,93.87,101.45,109.65,
+118.40,128.00,138.47,149.97,162.18,175.20,189.04,203.77,219.61,236.25,
+253.64,272.59,292.89,314.35,337.31,360.96,384.31,407.90,432.25,457.24,
+482.58,508.11,534.05,560.58,587.54,614.17,640.21,665.39,689.46,712.32,
+734.69,756.92,779.39,802.28,824.82,847.26,870.51,895.06,920.42,946.06,
+972.56,1000.25,1029.30,1059.34,1091.07,1125.22,1161.27,1198.92,1236.89,1274.35,
+1311.65,1349.25,1387.27,1425.35,1464.09,1503.17,1541.94,1580.67,1618.94,1657.21,
+1696.32,1735.57,1774.83,1813.95,1853.06,1892.87,1933.62,1975.27,2018.55,2063.47,
+2109.28,2155.59,2202.02,2248.24,2293.38,2337.74,2382.22,2426.89,2471.70,2516.84,
+2562.58,2608.44,2654.25,2700.18,2746.64,2793.33,2839.73,2885.37,2930.33,2974.54,
+3017.91,3060.38,3101.99,3142.56,3181.59,3219.12,3256.24,3293.55,3331.07,3368.81,
+3406.51,3444.04,3482.60,3523.59,3566.88,3611.76,3657.56,3702.70,3746.32,3789.03,
+3831.03,3873.07,3915.46,3957.85,4000.16,4042.97,4085.65,4128.35,4171.33,4215.25,
+4260.66,4307.58,4354.81,4401.89,4448.35,4494.65,4541.71,4588.67,4634.65,4679.75,
+4724.76,4769.81,4814.51,4858.82,4902.79,4945.89,4987.40,5027.23,5065.53,5102.90,
+5139.83,5177.30,5214.68,5250.58,5284.65,5317.13,5348.84,5380.74,5412.99,5445.81,
+5479.50,5514.26,5549.95,5586.07,5622.18,5659.02,5696.51,5734.96,5773.96,5812.78,
+5850.93,5887.95,5924.53,5961.05,5996.97,6031.46,6064.89,6097.53,6129.84,6162.26,
+6194.18,6225.90,6257.24,6288.42,6320.29,6352.89,6385.94,6419.03,6451.94,6484.87,
+6518.48,6552.84,6587.42,6622.37,6657.48,6692.97,6728.69,6763.81,6797.92,6831.48,
+6864.35,6896.03,6926.57,6955.90,6984.06,7010.87,7036.69,7061.77,7086.87,7112.44,
+7138.07,7163.01,7187.14,7211.03,7234.54,7257.76,7280.21,7301.97,7323.01,7344.44,
+7366.35,7388.27,7410.16,7431.42,7452.19,7473.11,7494.13,7514.75,7534.77,7555.28,
+7576.76,7598.57,7619.72,7640.50,7661.25,7681.94,7701.74,7720.85,7739.19,7756.09,
+7771.53,7785.77,7799.03,7811.37,7823.13,7834.17,7844.53,7854.40,7863.58,7872.54,
+7881.35,7889.87,7897.55,7904.73,7912.21,7920.32,7929.87,7940.39,7951.70,7963.70,
+7975.47,7986.33,7996.14,8005.69,8015.35,8024.77,8032.97,8039.63,8045.04,8049.96,
+8054.63,8058.66,8061.43,8063.51,8064.70,8065.28,8065.85,8066.38,8066.35,8066.17,
+8065.52,8063.54,8060.81,8058.13,8055.41,8053.38,8051.80,8050.40,8048.43,8046.39,
+8044.72,8042.95,8040.36,8037.29,8033.70,8029.55,8025.33,8020.57,8015.22,8009.09,
+8003.11,7997.42,7991.37,7985.46,7979.99,7974.52,7969.02,7964.01,7959.26,7954.62,
+7950.19,7945.29)
+```
+
+#### (A)
+
+```{r}
+par(mfrow=c(3,1))
+tsplot(x3,type="o")
+acf(x3)
+pacf(x3)
+```
+
+No it does not appear to be stationary. We will now check each difference until it is stationary starting with differences = 1.
+
+```{r}
+y1<-diff(x3,differences = 1)
+par(mfrow=c(3,1))
+tsplot(y1)
+acf(y1)
+pacf(y1)
+```
+
+We see at differences = 1, we have still not achieved stationarity. 
+
+```{r}
+y2<-diff(x3,differences = 2)
+par(mfrow=c(3,1))
+tsplot(y2)
+acf(y2)
+pacf(y2)
+```
+
+The number of differences necessary to achieve stationarity is 2.
+
+#### (B)
+Judging from our PACF and ACF, there are 3 potential models. Using the same reasoning from Question 2d, we can test which should be our selected model using our AIC and BIC criteria. 
+
+```{r}
+set.seed(12345)
+fit1<-arima(y2, order = c(0, 0, 2), include.mean = FALSE)
+fit2<-arima(y2, order = c(1, 0, 0), include.mean = FALSE)
+fit3<-arima(y2, order = c(1, 0, 1), include.mean = FALSE)
+```
+
+```{r}
+AIC(fit1,fit2,fit3)
+BIC(fit1,fit2,fit3)
+```
+
+Here we find it clear that ARMA(1,1) should be our selected model.
+
+```{r}
+fit3
+```
+
+The fitted model is given by Xt = 0.5839(Xt-1) + Wt + 0.555(Wt-1).
+
+#### (C)
+
+A 95% confidence interval will be the equivalent of testing the statistical significance of our lags using a significance level of 5%.
+
+We want to test the hypotheses H0 : ϕj = 0 against 
+H1 : ϕj ̸= 0, for j = 1, 2 and also H0 : θ1 = 0 against 
+H1 : θ1 ̸= 0. We can do this using a confidence interval.
+
+```{r}
+s.e_fit3<-sqrt(diag(fit3$var.coef))
+# inferior bound
+fit3$coef-qnorm(1-0.05/2)*s.e_fit3
+# superior bound
+fit3$coef+qnorm(1-0.05/2)*s.e_fit3
+```
+
+Therefore, approximate 95% confidence intervals for ϕ1 and ϕ2 are respectively given by (0.4899460, 0.6777838) and (0.4581137, 0.6519247). As zero is not included in our confidence intervals, we can say there is evidence that our two parameters are statistically significant to be included in our model. 
+
+#### (D)
+
+Standardised Residuals should be normally distributed and the Q-Q Plot will show this. If residuals follow close to a straight line on this plot, it is a good indication they are normally distributed. By using the SARIMA function, we will obtain diagnostic tool plots for checking if the model is well-fitted.
+
+```{r}
+sarima(y2,p=1,d=0,q=1,no.constant=TRUE)
+```
+
+From the plot of the standardised residuals and its ACF, we see that the residuals are behaving like a white noise, that is, the mean is zero, the variance seems to be constant over the time, and all the sample autocorrelations are inside the bands. Regarding the normal assumption for the white noise, we can observe from the qq-norm plot a good agreement between the sample quantiles from residuals and the theoretical quantiles from a standard normal distribution. So, the normal assumption seems not to be violated.
+
+The Ljung-Box-Pierce plot shows that the source of
+autocorrelation from the the data has been captured by the ARMA(1,1) model since most of our p-values are greater than 0.05. Therefore, we have statistical evidence that the model is well-fitted.
+
+
